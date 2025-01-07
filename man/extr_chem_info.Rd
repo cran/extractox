@@ -4,22 +4,23 @@
 \alias{extr_chem_info}
 \title{Query Chemical Information from IUPAC Names}
 \usage{
-extr_chem_info(IUPAC_names, stop_on_warning = FALSE)
+extr_chem_info(iupac_names, verbose = TRUE)
 }
 \arguments{
-\item{IUPAC_names}{A character vector of IUPAC names. These are standardized names
+\item{iupac_names}{A character vector of IUPAC names. These are standardized names
 of chemical compounds that will be used to search in the PubChem database.}
 
-\item{stop_on_warning}{Logical. If set to TRUE, the function will stop and
-throw an error if any substances are not found in PubChem. Defaults to FALSE,
-in which case a warning is issued.}
+\item{verbose}{A logical value indicating whether to print detailed messages.
+Default is TRUE.}
 }
 \value{
-A data frame with information on the queried compounds, including:
+A data frame with phisio-chemical information on the queried compounds,
+including but not limited to:
 \describe{
 \item{iupac_name}{The IUPAC name of the compound.}
 \item{cid}{The PubChem Compound Identifier (CID).}
-\item{isomeric_smiles}{The SMILES string (Simplified Molecular Input Line Entry System).}
+\item{isomeric_smiles}{The SMILES string (Simplified Molecular Input Line
+Entry System).}
 }
 }
 \description{
@@ -31,6 +32,6 @@ a unique row with the CID, CASRN, and additional chemical properties.
 \examples{
 \donttest{
 # Example with formaldehyde and aflatoxin
-extr_chem_info(IUPAC_names = c("Formaldehyde", "Aflatoxin B1"))
+extr_chem_info(iupac_names = c("Formaldehyde", "Aflatoxin B1"))
 }
 }

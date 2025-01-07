@@ -1,89 +1,138 @@
 #' Download and Extract Data from CompTox Chemistry Dashboard
 #'
-#' This function interacts with the CompTox Chemistry Dashboard to download and extract a wide range of chemical data based on user-defined search criteria. It allows for flexible input types and supports downloading various chemical properties, identifiers, and predictive data.
-#' It was inspired by the `ECOTOXr::websearch_comptox` function.
+#' This function interacts with the CompTox Chemistry Dashboard to download and
+#' extract a wide range of chemical data based on user-defined search criteria.
+#' It allows for flexible input types and supports downloading various chemical
+#' properties, identifiers, and predictive data. It was inspired by the
+#' `ECOTOXr::websearch_comptox` function.
 #'
-#' @param ids A character vector containing the items to be searched within the CompTox Chemistry Dashboard. These can be chemical names, CAS Registry Numbers (CASRN), InChIKeys, or DSSTox substance identifiers (DTXSID).
-#' @param download_items A character vector of items to be downloaded. This includes a comprehensive set of chemical properties, identifiers, predictive data, and other relevant information. By Default, it download all the info
+#' @param ids A character vector containing the items to be searched within the
+#'   CompTox Chemistry Dashboard. These can be chemical names, CAS Registry Numbers
+#'  (CASRN), InChIKeys, or DSSTox substance identifiers (DTXSID).
+#' @param download_items A character vector of items to be downloaded.
+#'   This includes a comprehensive set of chemical properties, identifiers, predictive
+#'   data, and other relevant information. By Default, it download all the info
 #' \describe{
-#'   \item{DTXCID}{The unique identifier for a chemical in the EPA's CompTox Chemicals Dashboard.}
-#'   \item{CASRN}{The Chemical Abstracts Service Registry Number, a unique numerical identifier for chemical substances.}
-#'   \item{INCHIKEY}{The hashed version of the full International Chemical Identifier (InChI) string.}
-#'   \item{IUPAC_NAME}{The International Union of Pure and Applied Chemistry (IUPAC) name of the chemical.}
-#'   \item{SMILES}{The Simplified Molecular Input Line Entry System (SMILES) representation of the chemical structure.}
+#'   \item{CASRN}{The Chemical Abstracts Service Registry Number, a unique numerical
+#'      identifier for chemical substances.}
+#'   \item{INCHIKEY}{The hashed version of the full International Chemical
+#'      Identifier (InChI) string.}
+#'   \item{IUPAC_NAME}{The International Union of Pure and Applied Chemistry
+#'      (IUPAC) name of the chemical.}
+#'   \item{SMILES}{The Simplified Molecular Input Line Entry System (SMILES)
+#'      representation of the chemical structure.}
 #'   \item{INCHI_STRING}{The full International Chemical Identifier (InChI) string.}
-#'   \item{MS_READY_SMILES}{The SMILES representation of the chemical structure, prepared for mass spectrometry analysis.}
-#'   \item{QSAR_READY_SMILES}{The SMILES representation of the chemical structure, prepared for quantitative structure-activity relationship (QSAR) modeling.}
-#'   \item{MOLECULAR_FORMULA}{The chemical formula representing the number and type of atoms in a molecule.}
-#'   \item{AVERAGE_MASS}{The average mass of the molecule, calculated based on the isotopic distribution of the elements.}
-#'   \item{MONOISOTOPIC_MASS}{The mass of the molecule calculated using the most abundant isotope of each element.}
+#'   \item{MS_READY_SMILES}{The SMILES representation of the chemical structure,
+#'      prepared for mass spectrometry analysis.}
+#'   \item{QSAR_READY_SMILES}{The SMILES representation of the chemical structure,
+#'      prepared for quantitative structure-activity relationship (QSAR) modeling.}
+#'   \item{MOLECULAR_FORMULA}{The chemical formula representing the number and type
+#'      of atoms in a molecule.}
+#'   \item{AVERAGE_MASS}{The average mass of the molecule, calculated based on the
+#'      isotopic distribution of the elements.}
+#'   \item{MONOISOTOPIC_MASS}{The mass of the molecule calculated using the most
+#'      abundant isotope of each element.}
 #'   \item{QC_LEVEL}{The quality control level of the data.}
 #'   \item{SAFETY_DATA}{Safety information related to the chemical.}
 #'   \item{EXPOCAST}{Exposure predictions from the EPA's ExpoCast program.}
 #'   \item{DATA_SOURCES}{Sources of the data provided.}
 #'   \item{TOXVAL_DATA}{Toxicological values related to the chemical.}
-#'   \item{NUMBER_OF_PUBMED_ARTICLES}{The number of articles related to the chemical in PubMed.}
+#'   \item{NUMBER_OF_PUBMED_ARTICLES}{The number of articles related to the chemical
+#'      in PubMed.}
 #'   \item{PUBCHEM_DATA_SOURCES}{Sources of data from PubChem.}
-#'   \item{CPDAT_COUNT}{The number of entries in the Chemical and Product Categories Database (CPDat).}
-#'   \item{IRIS_LINK}{Link to the EPA's Integrated Risk Information System (IRIS) entry for the chemical.}
-#'   \item{PPRTV_LINK}{Link to the EPA's Provisional Peer-Reviewed Toxicity Values (PPRTV) entry for the chemical.}
+#'   \item{CPDAT_COUNT}{The number of entries in the Chemical and Product Categories
+#'      Database (CPDat).}
+#'   \item{IRIS_LINK}{Link to the EPA's Integrated Risk Information System (IRIS)
+#'     entry for the chemical.}
+#'   \item{PPRTV_LINK}{Link to the EPA's Provisional Peer-Reviewed Toxicity Values
+#'     (PPRTV) entry for the chemical.}
 #'   \item{WIKIPEDIA_ARTICLE}{Link to the Wikipedia article for the chemical.}
 #'   \item{QC_NOTES}{Notes related to the quality control of the data.}
 #'   \item{ABSTRACT_SHIFTER}{Information related to the abstract shifter.}
 #'   \item{TOXPRINT_FINGERPRINT}{The ToxPrint chemoinformatics fingerprint of the chemical.}
-#'   \item{ACTOR_REPORT}{The Aggregated Computational Toxicology Resource (ACTOR) report for the chemical.}
+#'   \item{ACTOR_REPORT}{The Aggregated Computational Toxicology Resource (ACTOR)
+#'      report for the chemical.}
 #'   \item{SYNONYM_IDENTIFIER}{Identifiers for synonyms of the chemical.}
 #'   \item{RELATED_RELATIONSHIP}{Information on related chemicals.}
-#'   \item{ASSOCIATED_TOXCAST_ASSAYS}{Assays associated with the chemical in the ToxCast database.}
+#'   \item{ASSOCIATED_TOXCAST_ASSAYS}{Assays associated with the chemical
+#'      in the ToxCast database.}
 #'   \item{TOXVAL_DETAILS}{Details of toxicological values.}
 #'   \item{CHEMICAL_PROPERTIES_DETAILS}{Details of the chemical properties.}
-#'   \item{BIOCONCENTRATION_FACTOR_TEST_PRED}{Predicted bioconcentration factor from tests.}
-#'   \item{BOILING_POINT_DEGC_TEST_PRED}{Predicted boiling point in degrees Celsius from tests.}
-#'   \item{48HR_DAPHNIA_LC50_MOL/L_TEST_PRED}{Predicted 48-hour LC50 for Daphnia in mol/L from tests.}
+#'   \item{BIOCONCENTRATION_FACTOR_TEST_PRED}{Predicted bioconcentration factor from
+#'      tests.}
+#'   \item{BOILING_POINT_DEGC_TEST_PRED}{Predicted boiling point in degrees Celsius
+#'      from tests.}
+#'   \item{48HR_DAPHNIA_LC50_MOL/L_TEST_PRED}{Predicted 48-hour LC50 for Daphnia
+#'      in mol/L from tests.}
 #'   \item{DENSITY_G/CM^3_TEST_PRED}{Predicted density in g/cm³ from tests.}
 #'   \item{DEVTOX_TEST_PRED}{Predicted developmental toxicity from tests.}
-#'   \item{96HR_FATHEAD_MINNOW_MOL/L_TEST_PRED}{Predicted 96-hour LC50 for fathead minnow in mol/L from tests.}
-#'   \item{FLASH_POINT_DEGC_TEST_PRED}{Predicted flash point in degrees Celsius from tests.}
-#'   \item{MELTING_POINT_DEGC_TEST_PRED}{Predicted melting point in degrees Celsius from tests.}
+#'   \item{96HR_FATHEAD_MINNOW_MOL/L_TEST_PRED}{Predicted 96-hour LC50 for fathead
+#'       minnow in mol/L from tests.}
+#'   \item{FLASH_POINT_DEGC_TEST_PRED}{Predicted flash point in degrees Celsius
+#'      from tests.}
+#'   \item{MELTING_POINT_DEGC_TEST_PRED}{Predicted melting point in degrees Celsius
+#'      from tests.}
 #'   \item{AMES_MUTAGENICITY_TEST_PRED}{Predicted Ames mutagenicity from tests.}
-#'   \item{ORAL_RAT_LD50_MOL/KG_TEST_PRED}{Predicted oral LD50 for rats in mol/kg from tests.}
-#'   \item{SURFACE_TENSION_DYN/CM_TEST_PRED}{Predicted surface tension in dyn/cm from tests.}
-#'   \item{THERMAL_CONDUCTIVITY_MW_M×K_TEST_PRED}{Predicted thermal conductivity in mW/m×K from tests.}
-#'   \item{TETRAHYMENA_PYRIFORMIS_IGC50_MOL/L_TEST_PRED}{Predicted IGC50 for Tetrahymena pyriformis in mol/L from tests.}
+#'   \item{ORAL_RAT_LD50_MOL/KG_TEST_PRED}{Predicted oral LD50 for rats in mol/kg
+#'      from tests.}
+#'   \item{SURFACE_TENSION_DYN/CM_TEST_PRED}{Predicted surface tension in dyn/cm
+#'      from tests.}
+#'   \item{THERMAL_CONDUCTIVITY_MW_M×K_TEST_PRED}{Predicted thermal conductivity
+#'      in mW/m×K from tests.}
+#'   \item{TETRAHYMENA_PYRIFORMIS_IGC50_MOL/L_TEST_PRED}{Predicted IGC50 for Tetrahymena
+#'      pyriformis in mol/L from tests.}
 #'   \item{VISCOSITY_CP_CP_TEST_PRED}{Predicted viscosity in cP from tests.}
-#'   \item{VAPOR_PRESSURE_MMHG_TEST_PRED}{Predicted vapor pressure in mmHg from tests.}
-#'   \item{WATER_SOLUBILITY_MOL/L_TEST_PRED}{Predicted water solubility in mol/L from tests.}
-#'   \item{ATMOSPHERIC_HYDROXYLATION_RATE_\(AOH\)_CM3/MOLECULE\*SEC_OPERA_PRED}{Predicted atmospheric hydroxylation rate in cm³/molecule\*sec from OPERA.}
+#'   \item{VAPOR_PRESSURE_MMHG_TEST_PRED}{Predicted vapor pressure in mmHg from
+#'      tests.}
+#'   \item{WATER_SOLUBILITY_MOL/L_TEST_PRED}{Predicted water solubility in mol/L
+#'      from tests.}
+#'   \item{ATMOSPHERIC_HYDROXYLATION_RATE_\(AOH\)_CM3/MOLECULE\*SEC_OPERA_PRED}{Predicted
+#'      atmospheric hydroxylation rate in cm³/molecule\*sec from OPERA.}
 #'   \item{BIOCONCENTRATION_FACTOR_OPERA_PRED}{Predicted bioconcentration factor from OPERA.}
-#'   \item{BIODEGRADATION_HALF_LIFE_DAYS_DAYS_OPERA_PRED}{Predicted biodegradation half-life in days from OPERA.}
-#'   \item{BOILING_POINT_DEGC_OPERA_PRED}{Predicted boiling point in degrees Celsius from OPERA.}
-#'   \item{HENRYS_LAW_ATM-M3/MOLE_OPERA_PRED}{Predicted Henry's law constant in atm-m³/mole from OPERA.}
+#'   \item{BIODEGRADATION_HALF_LIFE_DAYS_DAYS_OPERA_PRED}{Predicted biodegradation
+#'      half-life in days from OPERA.}
+#'   \item{BOILING_POINT_DEGC_OPERA_PRED}{Predicted boiling point in degrees
+#'      Celsius from OPERA.}
+#'   \item{HENRYS_LAW_ATM-M3/MOLE_OPERA_PRED}{Predicted Henry's law constant
+#'      in atm-m³/mole from OPERA.}
 #'   \item{OPERA_KM_DAYS_OPERA_PRED}{Predicted Km in days from OPERA.}
-#'   \item{OCTANOL_AIR_PARTITION_COEFF_LOGKOA_OPERA_PRED}{Predicted octanol-air partition coefficient (log Koa) from OPERA.}
-#'   \item{SOIL_ADSORPTION_COEFFICIENT_KOC_L/KG_OPERA_PRED}{Predicted soil adsorption coefficient (Koc) in L/kg from OPERA.}
-#'   \item{OCTANOL_WATER_PARTITION_LOGP_OPERA_PRED}{Predicted octanol-water partition coefficient (log P) from OPERA.}
-#'   \item{MELTING_POINT_DEGC_OPERA_PRED}{Predicted melting point in degrees Celsius from OPERA.}
+#'   \item{OCTANOL_AIR_PARTITION_COEFF_LOGKOA_OPERA_PRED}{Predicted octanol-air
+#'      partition coefficient (log Koa) from OPERA.}
+#'   \item{SOIL_ADSORPTION_COEFFICIENT_KOC_L/KG_OPERA_PRED}{Predicted soil adsorption
+#'      coefficient (Koc) in L/kg from OPERA.}
+#'   \item{OCTANOL_WATER_PARTITION_LOGP_OPERA_PRED}{Predicted octanol-water partition
+#'      coefficient (log P) from OPERA.}
+#'   \item{MELTING_POINT_DEGC_OPERA_PRED}{Predicted melting point in degrees Celsius
+#'      from OPERA.}
 #'   \item{OPERA_PKAA_OPERA_PRED}{Predicted pKa (acidic) from OPERA.}
 #'   \item{OPERA_PKAB_OPERA_PRED}{Predicted pKa (basic) from OPERA.}
-#'   \item{VAPOR_PRESSURE_MMHG_OPERA_PRED}{Predicted vapor pressure in mmHg from OPERA.}
-#'   \item{WATER_SOLUBILITY_MOL/L_OPERA_PRED}{Predicted water solubility in mol/L from OPERA.}
-#'   \item{EXPOCAST_MEDIAN_EXPOSURE_PREDICTION_MG/KG-BW/DAY}{Predicted median exposure from ExpoCast in mg/kg-bw/day.}
+#'   \item{VAPOR_PRESSURE_MMHG_OPERA_PRED}{Predicted vapor pressure in mmHg from
+#'      OPERA.}
+#'   \item{WATER_SOLUBILITY_MOL/L_OPERA_PRED}{Predicted water solubility in mol/L
+#'      from OPERA.}
+#'   \item{EXPOCAST_MEDIAN_EXPOSURE_PREDICTION_MG/KG-BW/DAY}{Predicted median
+#'     exposure from ExpoCast in mg/kg-bw/day.}
 #'   \item{NHANES}{National Health and Nutrition Examination Survey data.}
 #'   \item{TOXCAST_NUMBER_OF_ASSAYS/TOTAL}{Number of assays in ToxCast.}
 #'   \item{TOXCAST_PERCENT_ACTIVE}{Percentage of active assays in ToxCast.}
 #' }
-#' @param mass_error Numeric value indicating the mass error tolerance for searches involving mass data. Default is `0`.
-#' @param verify_ssl Logical value indicating whether SSL certificates should be verified. Default is `FALSE`. Note that this argument is not used
-#'   on linux OS.
-#' @param ... Additional arguments passed to `httr2::req_options()`. Note that this argument is not used
-#'   on linux OS.
+#' @param mass_error Numeric value indicating the mass error tolerance for searches
+#'   involving mass data. Default is `0`.
+#' @param verify_ssl Logical value indicating whether SSL certificates should be
+#'   verified. Default is `FALSE`. Note that this argument is not used on linux OS.
+#' @param verbose A logical value indicating whether to print detailed messages.
+#'   Default is TRUE.
+#' @param ... Additional arguments passed to `httr2::req_options()`.
 #' @details
-#' Please note that this function, which pulls data from EPA servers, may encounter issues on some Linux systems.
-#' This is because those servers do not accept secure legacy renegotiation. On Linux systems, the current function depends
-#' on \code{curl} and \code{OpenSSL}, which have known problems with unsafe legacy renegotiation in newer versions.
-#' One workaround is to downgrade to \code{curl v7.78.0} and \code{OpenSSL v1.1.1}.
-#' However, please be aware that using these older versions might introduce potential security vulnerabilities.
-#' Refer to \href{https://gist.github.com/c1au6i0/5cc2d87966340a31032ffebf1cfb657c}{this gist} for instructions on how to downgrade \code{curl} and \code{OpenSSL} on Ubuntu.
+#' Please note that this function, which pulls data from EPA servers, may encounter
+#'   issues on some Linux systems. This is because those servers do not accept secure
+#'   legacy renegotiation. On Linux systems, the current function depends on \code{curl}
+#'   and \code{OpenSSL}, which have known problems with unsafe legacy renegotiation
+#'   in newer versions. One workaround is to downgrade to \code{curl v7.78.0} and
+#'   \code{OpenSSL v1.1.1}. However, please be aware that using these older versions
+#'   might introduce potential security vulnerabilities. Refer to
+#'   \href{https://gist.github.com/c1au6i0/5cc2d87966340a31032ffebf1cfb657c}{this gist}
+#'   for instructions on how to downgrade \code{curl} and \code{OpenSSL} on Ubuntu.
 #' @seealso \href{https://www.epa.gov/comptox-tools/comptox-chemicals-dashboard-resource-hub}{CompTox Chemicals Dashboard Resource Hub}
 #' @return A cleaned data frame containing the requested data from CompTox.
 #' @export
@@ -94,7 +143,6 @@
 #' }
 extr_comptox <- function(ids,
                          download_items = c(
-                           "DTXCID",
                            "CASRN",
                            "INCHIKEY",
                            "IUPAC_NAME",
@@ -162,11 +210,13 @@ extr_comptox <- function(ids,
                          ),
                          mass_error = 0,
                          verify_ssl = FALSE,
+                         verbose = TRUE,
                          ...) {
-  if (missing(ids)) {
+  if (base::missing(ids)) {
     cli::cli_abort("The argument {.field ids} is required.")
   }
 
+  check_internet(verbose = verbose)
   xlsx_file <- tempfile(fileext = ".xlsx")
 
 
@@ -179,16 +229,31 @@ extr_comptox <- function(ids,
     verify_ssl = verify_ssl,
     xlsx_file = xlsx_file,
     base_url = base_url,
+    verbose = verbose,
     ...
   )
 
   sheet_names <- readxl::excel_sheets(xlsx_file)
 
-  dat_list <- lapply(sheet_names, readxl::read_excel, path = xlsx_file)
+  suppressMessages(
+    dat_list <- lapply(sheet_names, readxl::read_excel, path = xlsx_file)
+  )
+
   names(dat_list) <- paste0("comptox_", gsub(" ", "_", tolower(sheet_names)))
   unlink(xlsx_file)
 
-  dat_list
+  out <- lapply(dat_list, janitor::clean_names)
+
+  # This is to get the ids that were not retrieved
+  dat <- out$comptox_main_data
+
+  ids_not_found <- dat$input[grepl("Found 0|fails checksum", dat$found_by)]
+
+  if (all(isTRUE(verbose), length(ids_not_found) != 0)) {
+    cli::cli_warn("Chemical{?s} {.field {ids_not_found}} not found!")
+  }
+
+  out
 }
 
 #' @inherit extr_comptox title description
@@ -203,11 +268,14 @@ extr_comptox_ <- function(ids,
                           verify_ssl = FALSE,
                           xlsx_file,
                           base_url,
+                          verbose = TRUE,
                           ...) {
   libcurl_opt <- set_ssl(verify_ssl = verify_ssl, other_opt = ...)
 
   identifier_types <- c("chemical_name", "CASRN", "INCHIKEY", "dtxsid")
   input_type <- "IDENTIFIER"
+
+  download_items <- c("DTXCID", download_items)
 
   params <- list(
     identifierTypes = identifier_types,
@@ -218,8 +286,9 @@ extr_comptox_ <- function(ids,
     downloadType = "EXCEL"
   )
 
-
-  cli::cli_alert_info("Sending request to CompTox...")
+  if (isTRUE(verbose)) {
+    cli::cli_alert_info("Sending request to CompTox...")
+  }
 
   error_result <- NULL
 
@@ -238,7 +307,6 @@ extr_comptox_ <- function(ids,
     }
   )
 
-
   msg <- "Failed to perform the request: {conditionMessage(error_result)}"
 
   if (!is.null(error_result)) {
@@ -248,14 +316,16 @@ extr_comptox_ <- function(ids,
     cli::cli_abort(msg)
   }
 
-  check_status_code(post_result)
+  check_status_code(post_result, verbose = verbose)
 
   response_body <- httr2::resp_body_string(post_result)
 
   # base url for download
   base_url_down <- "https://comptox.epa.gov/dashboard-api/batchsearch/export/content/"
 
-  cli::cli_alert_info("Getting info from CompTox...")
+  if (isTRUE(verbose)) {
+    cli::cli_alert_info("Getting info from CompTox...")
+  }
 
   Sys.sleep(5)
 
@@ -270,7 +340,7 @@ extr_comptox_ <- function(ids,
     }
   )
 
-  check_status_code(resp)
+  check_status_code(resp, verbose = verbose)
 
   resp |>
     httr2::resp_body_raw() |>

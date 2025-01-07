@@ -1,3 +1,125 @@
+#' Verify SSL
+#'
+#' @param verify_ssl Boolean.
+#' @param ... Any other arguments to be supplied to `req_option`
+#' @keywords internal
+#' @noRd
+#' @return Named list.
+set_ssl <- function(verify_ssl, ...) {
+  libcurl_opt <- list(...)
+  if (!verify_ssl) {
+    libcurl_opt[["ssl_verifyhost"]] <- 0
+    libcurl_opt[["ssl_verifypeer"]] <- 0
+  }
+  libcurl_opt
+}
+
+
+#' Download and Process Data from a URL
+#'
+#' Downloads data from a specified URL, processes the response, and returns a cleaned
+#' data frame. The function handles HTTP requests, saves temporary files, and extracts
+#' table data from HTML content. Initially developed for EPA's PPRTVS data extraction
+#' but designed to be generalizable for similar use cases.
+#'
+#' @param url Character string specifying the URL to download data from
+#' @param url_query_param List of query parameters to be added to the URL
+#' @param file_name Character string specifying the name for the downloaded file
+#' @param file_ext Character string specifying the file extension. Default is "file".
+#' @param verbose Logical indicating whether to display progress messages. Default is FALSE.
+#' @return A data frame containing:
+#'   * The processed table data from the HTML content
+#'   * Clean column names (via janitor::clean_names)
+#'   * An additional column 'date_downloaded' with the response timestamp
+#' @keywords internal
+#' @noRd
+download_db <- function(url,
+                        url_query_param,
+                        file_name,
+                        file_ext = "file",
+                        verbose = TRUE) {
+  check_internet(verbose = verbose)
+
+  # Perform the request and get a response
+  if (isTRUE(verbose)) {
+    cli::cli_alert_info("Downloading data from {.url {url}}.")
+  }
+
+  req <- httr2::request(url) |>
+    httr2::req_url_query(
+      !!!url_query_param,
+      multi = "explore"
+    ) |>
+    httr2::req_perform()
+
+  dat_file <- tempfile(fileext = file_ext)
+
+  req |>
+    httr2::resp_body_raw() |>
+    writeBin(dat_file)
+
+  out <- dat_file |>
+    rvest::read_html() |>
+    rvest::html_nodes("table") |>
+    rvest::html_table(fill = TRUE)
+
+  out_cl <- out[[1]] |>
+    janitor::clean_names()
+
+  out_cl[, "date_downloaded"] <- httr2::resp_date(req)
+
+  out_cl
+}
+
+
+#' Search and Match Data
+#'
+#' This function searches for matches in a dataframe based on a given list of ids
+#' and search type, then combines the results into a single dataframe, making sure
+#' that NA rows are added for any missing ids. The column `query` is a the end of
+#' the dataframe.
+#'
+#' @param dat The dataframe to be searched.
+#' @param ids A vector of ids to search for.
+#' @param search_type The type of search: "casrn" or "name".
+#' @param col_names Column names to be used when creating a new dataframe in case of no matches.
+#' @param chemical_col The name of the column in dat where chemical names are stored.
+#' @return A dataframe with search results.
+#' @keywords internal
+#'
+#' @details This function is used in `extr_pprtv` and `extr_monograph`.
+#'
+#' @seealso
+#' \code{\link{extr_pprtv}}, \code{\link{extr_monograph}}
+search_and_match <- function(dat, ids, search_type, col_names, chemical_col = "chemical") {
+  results <- lapply(ids, function(id) {
+    if (search_type == "casrn") {
+      match <- dat[dat$casrn == id, ]
+    } else if (search_type == "name") {
+      match <- dat[grepl(id, dat[[chemical_col]]), ]
+    }
+
+    if (nrow(match) == 0) {
+      match <- data.frame(matrix(NA, nrow = 1, ncol = length(col_names)))
+      names(match) <- col_names
+    }
+
+    match$query <- id
+    match
+  })
+
+  out <- do.call(rbind, results)
+
+  # Add NA rows for missing ids
+  out <- merge(data.frame(query = ids, stringsAsFactors = FALSE), out,
+    by = "query", all.x = TRUE
+  )
+  out <- out[, col_names]
+
+  return(out)
+}
+
+
 #' Write Dataframes to Excel
 #'
 #' This function creates an Excel file with each dataframe in a list as a separate sheet.
@@ -27,126 +149,4 @@ write_dataframes_to_excel <- function(df_list, filename) {
   # Save the workbook
   openxlsx::saveWorkbook(wb, filename, overwrite = TRUE)
   cli::cli_alert_info("Excell file written in {filename}...")
-}
-
-#' Verify SSL
-#'
-#' @param verify_ssl Boolean.
-#' @param ... Any other arguments to be supplied to `req_option`
-#' @keywords internal
-#' @noRd
-#' @return Named list.
-set_ssl <- function(verify_ssl, ...) {
-  libcurl_opt <- list(...)
-  if (!verify_ssl) {
-    libcurl_opt[["ssl_verifyhost"]] <- 0
-    libcurl_opt[["ssl_verifypeer"]] <- 0
-  }
-  libcurl_opt
-}
-
-#' Check the status code of an HTTP response
-#'
-#' This function checks the status code of an HTTP response and provides
-#' appropriate messages based on the status.
-#'
-#' @param resp An HTTP response object from the httr2 package.
-#' @keywords internal
-#' @noRd
-#' @return This function does not return a value. It is used for its side effects.
-check_status_code <- function(resp) {
-  status_code <- httr2::resp_status(resp)
-  if (!status_code %in% c(200L, 202L)) {
-    cli::cli_abort("Request failed with status code: {status_code}")
-  } else {
-    cli::cli_inform("Request succeeded with status code: {status_code}")
-  }
-}
-
-
-#' Check Internet
-#'
-#' Wrapper around `pingr::is_online` to print message
-#' a better message.
-#'
-#' @param verbose Boolean to display messages.
-#' @keywords internal
-#' @noRd
-check_internet <- function(verbose = TRUE) {
-  if (isTRUE(verbose)) {
-    cli::cli_alert_info("Checking Internet Connection...")
-  }
-
-  if (isFALSE(pingr::is_online())) {
-    cli::cli_abort("It seems that you are not connected to internet!")
-    out <- FALSE
-  } else {
-    cli::cli_alert_info("Internet connection OK...")
-    out <- TRUE
-  }
-}
-
-#' Selection of assays of iris
-
-#' @keywords internal
-#' @noRd
-ice_assays <- function() {
-  ice_carc_woe <-
-    c(
-      "OPP Carcinogenicity",
-      "Report on Carcinogens",
-      "IRIS Carcinogenicity",
-      "IARC Carcinogenicity",
-      "IRIS Carcinogenicity"
-    )
-
-
-  ice_invivo_acute_tox <-
-    c(
-      "Rat Acute Oral Toxicity",
-      "Rat Acute Inhalation Toxicity",
-      "Rat Acute Dermal Toxicity"
-    )
-
-
-  ice_invivo_sensitization <- c("Human Maximization Test", "Human Repeat Insult Patch Test", "LLNA", "Guinea Pig Maximization/Buehler")
-
-  ice_invivo_irritation <- c(
-    "Draize Skin Irritation/Corrosion Test",
-    "Draize Eye Irritation/Corrosion Test",
-    "Four-hour Human Patch Test"
-  )
-
-
-  ice_invivo_endocrine <- c(
-    "Hershberger-Agonist",
-    "Hershberger-Antagonist",
-    "Uterotrophic-Agonist"
-  )
-
-  ice_cancer <- c(
-    "In Vitro Genotoxicity",
-    "In Vivo Genotoxicity",
-    "NTP Carcinogenicity",
-    "Two year cancer bioassay"
-  )
-
-  ice_dart <- c(
-    "Urinalysis", "Microscopic Pathology",
-    "Gross Pathology", "Organ Weight", "In Life Observation", "Hematology",
-    "Clinical Chemistry", "Cholinesterase", "in vivo", "Offspring Survival Late",
-    "Developmental Malformation", "Developmental Landmark", "Reproductive Performance",
-    "Offspring Survival Early"
-  )
-
-
-  list(
-    ice_carc_woe = ice_carc_woe,
-    ice_invivo_acute_tox = ice_invivo_acute_tox,
-    ice_invivo_sensitization = ice_invivo_sensitization,
-    ice_invivo_irritation = ice_invivo_irritation,
-    ice_invivo_endocrine = ice_invivo_endocrine,
-    ice_cancer = ice_cancer,
-    ice_dart = ice_dart
-  )
 }

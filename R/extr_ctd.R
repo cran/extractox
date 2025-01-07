@@ -3,10 +3,14 @@
 #' This function queries the Comparative Toxicogenomics Database API to retrieve data related to chemicals, diseases, genes, or other categories.
 #'
 #' @param input_terms A character vector of input terms such as CAS numbers or IUPAC names.
-#' @param category A string specifying the category of data to query. Valid options are "all", "chem", "disease", "gene", "go", "pathway", "reference", and "taxon". Default is "chem".
-#' @param report_type A string specifying the type of report to return. Default is "genes_curated". Valid options include:
+#' @param category A string specifying the category of data to query. Valid options
+#'   are "all", "chem", "disease", "gene", "go", "pathway", "reference", and "taxon".
+#'   Default is "chem".
+#' @param report_type A string specifying the type of report to return. Default is
+#'   "genes_curated". Valid options include:
 #'   \describe{
-#'     \item{"cgixns"}{Curated chemical-gene interactions. Requires at least one \code{action_types} parameter.}
+#'     \item{"cgixns"}{Curated chemical-gene interactions. Requires at least one
+#'        \code{action_types} parameter.}
 #'     \item{"chems"}{All chemical associations.}
 #'     \item{"chems_curated"}{Curated chemical associations.}
 #'     \item{"chems_inferred"}{Inferred chemical associations.}
@@ -21,21 +25,32 @@
 #'     \item{"pathways_enriched"}{Enriched pathway associations.}
 #'     \item{"phenotypes_curated"}{Curated phenotype associations.}
 #'     \item{"phenotypes_inferred"}{Inferred phenotype associations.}
-#'     \item{"go"}{All Gene Ontology (GO) associations. Requires at least one \code{ontology} parameter.}
-#'     \item{"go_enriched"}{Enriched GO associations. Requires at least one \code{ontology} parameter.}
+#'     \item{"go"}{All Gene Ontology (GO) associations. Requires at least one
+#'        \code{ontology} parameter.}
+#'     \item{"go_enriched"}{Enriched GO associations. Requires at least one
+#'        \code{ontology} parameter.}
 #'   }
-#' @param input_term_search_type A string specifying the search method to use. Options are "hierarchicalAssociations" or "directAssociations". Default is "directAssociations".
-#' @param action_types An optional character vector specifying one or more interaction types for filtering results. Default is "ANY".
-#'    Other acceptable inputs are "abundance", "activity", "binding", "cotreatment", "expression", "folding", "localization", "metabolic processing"...See https://ctdbase.org/tools/batchQuery.go
-#'    for a full list.
-#' @param ontology An optional character vector specifying one or more ontologies for filtering GO reports. Default NULL.
+#' @param input_term_search_type A string specifying the search method to use.
+#'   Options are "hierarchicalAssociations" or "directAssociations". Default is
+#'   "directAssociations".
+#' @param action_types An optional character vector specifying one or more interaction
+#'   types for filtering results. Default is "ANY".
+#'   Other acceptable inputs are "abundance", "activity", "binding", "cotreatment",
+#'   "expression", "folding", "localization", "metabolic processing"...
+#'   See https://ctdbase.org/tools/batchQuery.go for a full list.
+#' @param ontology An optional character vector specifying one or more ontologies
+#'   for filtering GO reports. Default NULL.
 #' @param verify_ssl Boolean to control of SSL should be verified or not.
+#' @param verbose A logical value indicating whether to print detailed messages.
+#'   Default is TRUE.
 #' @param ... Any other arguments to be supplied to `req_option` and thus to `libcurl`.
 #' @return A data frame containing the queried data in CSV format.
 #' @seealso \href{http://ctdbase.org}{Comparative Toxicogenomics Database}
 #' @references
-#' - Davis, A. P., Grondin, C. J., Johnson, R. J., Sciaky, D., McMorran, R., Wiegers, T. C., & Mattingly, C. J. (2019).
-#' The Comparative Toxicogenomics Database: update 2019. Nucleic acids research, 47(D1), D948–D954. \doi{10.1093/nar/gky868}
+#' - Davis, A. P., Grondin, C. J., Johnson, R. J., Sciaky, D., McMorran, R.,
+#'   Wiegers, T. C., & Mattingly, C. J. (2019).
+#' The Comparative Toxicogenomics Database: update 2019. Nucleic acids research,
+#'   47(D1), D948–D954. \doi{10.1093/nar/gky868}
 #' @export
 #' @examples
 #' \donttest{
@@ -68,15 +83,21 @@ extr_ctd <- function(
     action_types = NULL,
     ontology = NULL,
     verify_ssl = FALSE,
+    verbose = TRUE,
     ...) {
-  if (missing(input_terms)) {
+  if (base::missing(input_terms)) {
     cli::cli_abort("The argument {.field {input_terms}} is required.")
   }
 
 
   base_url <- "https://ctdbase.org/tools/batchQuery.go"
-  check_internet()
+  check_internet(verbose = verbose)
 
+
+  col_names <- c(
+    "chemical_name", "chemical_id", "casrn", "gene_symbol",
+    "gene_id", "organism", "organism_id", "pubmed_ids", "query"
+  )
 
   params <- list(
     inputType = category,
@@ -102,7 +123,9 @@ extr_ctd <- function(
   }
 
   # Perform the request and get a response
-  cli::cli_inform("Sending request to CTD database...")
+  if (isTRUE(verbose)) {
+    cli::cli_alert_info("Sending request to CTD database...")
+  }
 
   libcurl_opt <- set_ssl(verify_ssl = verify_ssl, other_opt = ...)
 
@@ -118,7 +141,7 @@ extr_ctd <- function(
     }
   )
 
-  check_status_code(resp)
+  check_status_code(resp, verbose = verbose)
 
   csv_file <- tempfile(fileext = "csv")
 
@@ -129,32 +152,54 @@ extr_ctd <- function(
   out <- utils::read.csv(csv_file) |>
     janitor::clean_names()
 
-  unlink(csv_file)
+  names(out)[names(out) == "x_input"] <- "query"
+  out <- out[c(setdiff(names(out), "query"), "query")]
+  names(out) <- col_names
 
+  out[out == ""] <- NA
+
+  # Lets clean up
+  out$query <- gsub(" \\[Object not found\\]", "", out$query)
+
+  check_na_warn(dat = out, col_to_check = "gene_id", verbose = verbose)
+
+  unlink(csv_file)
   out
 }
 
 #' Extract Tetramer Data from the CTD API
 #'
-#' This function queries the Comparative Toxicogenomics Database API to retrieve tetramer data based on chemicals, diseases, genes, or other categories.
+#' This function queries the Comparative Toxicogenomics Database API to retrieve
+#' tetramer data based on chemicals, diseases, genes, or other categories.
 #'
-#' @param chem A string indicating the chemical identifiers such as CAS number or IUPAC name of the chemical.
+#' @param chem A string indicating the chemical identifiers such as CAS number or
+#'   IUPAC name of the chemical.
 #' @param disease A string indicating a disease term. Default is an empty string.
 #' @param gene A string indicating a gene symbol. Default is an empty string.
 #' @param go A string indicating a Gene Ontology term. Default is an empty string.
-#' @param input_term_search_type A string specifying the search method to use. Options are "hierarchicalAssociations" or "directAssociations". Default is "directAssociations".
-#' @param qt_match_type A string specifying the query type match method. Options are "equals" or "contains". Default is "equals".
-#' @param verify_ssl Boolean to control if SSL should be verified or not. Default is FALSE.
+#' @param input_term_search_type A string specifying the search method to use.
+#'   Options are "hierarchicalAssociations" or "directAssociations". Default is
+#'   "directAssociations".
+#' @param qt_match_type A string specifying the query type match method. Options
+#'   are "equals" or "contains". Default is "equals".
+#' @param verify_ssl Boolean to control if SSL should be verified or not.
+#'   Default is FALSE.
+#' @param verbose A logical value indicating whether to print detailed messages.
+#'   Default is TRUE.
 #' @param ... Any other arguments to be supplied to `req_option` and thus to `libcurl`.
 #' @return A data frame containing the queried tetramer data in CSV format.
 #' @seealso \href{http://ctdbase.org}{Comparative Toxicogenomics Database}
 #' @references
 #' - Comparative Toxicogenomics Database: \url{http://ctdbase.org}
-#' - Davis, A. P., Grondin, C. J., Johnson, R. J., Sciaky, D., McMorran, R., Wiegers, T. C., & Mattingly, C. J. (2019).
-#' The Comparative Toxicogenomics Database: update 2019. Nucleic acids research, 47(D1), D948–D954. \doi{10.1093/nar/gky868}
-#' - Davis, A. P., Wiegers, T. C., Wiegers, J., Wyatt, B., Johnson, R. J., Sciaky, D., Barkalow, F., Strong, M., Planchart, A., & Mattingly, C. J. (2023).
-#' CTD tetramers: A new online tool that computationally links curated chemicals, genes, phenotypes, and diseases to inform molecular mechanisms for
-#' environmental health. Toxicological Sciences, 195(2), 155–168.
+#' - Davis, A. P., Grondin, C. J., Johnson, R. J., Sciaky, D., McMorran, R.,
+#'   Wiegers, T. C., & Mattingly, C. J. (2019).
+#' The Comparative Toxicogenomics Database: update 2019. Nucleic acids research,
+#'   47(D1), D948–D954. \doi{10.1093/nar/gky868}
+#' - Davis, A. P., Wiegers, T. C., Wiegers, J., Wyatt, B., Johnson,
+#'   R. J., Sciaky, D., Barkalow, F., Strong, M., Planchart, A.,
+#'   & Mattingly, C. J. (2023). CTD tetramers: A new online tool that computationally
+#'   links curated chemicals, genes, phenotypes, and diseases to inform molecular
+#'    mechanisms for environmental health. Toxicological Sciences, 195(2), 155–168.
 #' \doi{10.1093/toxsci/kfad069}
 #' @export
 #' @examples
@@ -177,7 +222,14 @@ extr_tetramer <- function(
     input_term_search_type = "directAssociations",
     qt_match_type = "equals",
     verify_ssl = FALSE,
+    verbose = TRUE,
     ...) {
+  if (base::missing(chem)) {
+    cli::cli_abort("The argument {.field {chem}} is required.")
+  }
+
+  check_internet(verbose = verbose)
+
   if (length(chem) > 1) {
     dat <- lapply(chem, extr_tetramer_,
       disease = disease,
@@ -186,13 +238,12 @@ extr_tetramer <- function(
       input_term_search_type = input_term_search_type,
       qt_match_type = qt_match_type,
       verify_ssl = verify_ssl,
+      verbose = verbose,
       ...
     )
     out <- do.call(rbind, dat)
   } else {
     base_url <- "https://ctdbase.org/query.go"
-    check_internet()
-
 
     out <- extr_tetramer_(
       chem = chem,
@@ -202,9 +253,12 @@ extr_tetramer <- function(
       input_term_search_type = input_term_search_type,
       qt_match_type = qt_match_type,
       verify_ssl = verify_ssl,
+      verbose = verbose,
       ...
     )
   }
+
+  check_na_warn(dat = out, col_to_check = "gene_id", verbose = verbose)
 
   out
 }
@@ -222,11 +276,8 @@ extr_tetramer_ <- function(
     input_term_search_type = "directAssociations",
     qt_match_type = "equals",
     verify_ssl = FALSE,
+    verbose = verbose,
     ...) {
-  if (missing(chem)) {
-    cli::cli_abort("The argument {.field {chem}} is required.")
-  }
-
   # Define the base URL
   base_url <- "https://ctdbase.org/query.go"
 
@@ -250,7 +301,10 @@ extr_tetramer_ <- function(
   )
 
   # Perform the request and get a response
-  cli::cli_inform("Sending request to CTD database for tetramer data for {.field {chem}}...")
+  if (isTRUE(verbose)) {
+    cli::cli_alert_info("Sending request to CTD database for tetramer data for
+                        {.field {chem}}...")
+  }
 
   libcurl_opt <- set_ssl(verify_ssl = verify_ssl, other_opt = ...)
 
@@ -266,7 +320,7 @@ extr_tetramer_ <- function(
     }
   )
 
-  check_status_code(resp)
+  check_status_code(resp, verbose = verbose)
 
   tab_file <- tempfile(fileext = "csv")
 
@@ -279,9 +333,8 @@ extr_tetramer_ <- function(
 
   unlink(tab_file)
 
-  # if no chem is found it returns a dataframe with one single column
+  # if no chem is found it returns a dataframe with one single row
   if (ncol(out) == 1) {
-    cli::cli_warn("The chem {.field {chem}} was not found.")
     out <- data.frame(
       query = chem,
       chemical = NA,
@@ -296,6 +349,8 @@ extr_tetramer_ <- function(
   } else {
     out <- cbind(query = chem, out)
   }
+
+  out <- out[c(setdiff(names(out), "query"), "query")]
 
   out
 }
